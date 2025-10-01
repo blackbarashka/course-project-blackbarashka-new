@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.api.endpoints import books
+
 app = FastAPI(title="SecDev Course App", version="0.1.0")
 
 
@@ -27,6 +29,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"error": {"code": "http_error", "message": detail}},
     )
+
+
+# Подключаем роутеры для книг
+app.include_router(books.router)
 
 
 @app.get("/health")
