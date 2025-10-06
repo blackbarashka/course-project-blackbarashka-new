@@ -4,7 +4,6 @@ repos:
     hooks:
       - id: no-commit-to-branch
         args: ['--branch', 'main', '--branch', 'master']
-        stages: [commit]
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-merge-conflict
