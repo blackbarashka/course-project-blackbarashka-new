@@ -1,2 +1,6 @@
 fastapi==0.112.2
 uvicorn==0.30.5
+pytest
+pytest-asyncio
+httpx
+requests
