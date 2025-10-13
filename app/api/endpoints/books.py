@@ -6,6 +6,29 @@ router = APIRouter(prefix="/api/v1/books", tags=["books"])
 books_db = []
 current_id = 1
 
+# === THREAT MODELING P04 - ВАЛИДАЦИЯ СТАТУСОВ ===
+
+
+def validate_status_transition(current_status: str, new_status: str) -> None:
+    """
+    Валидация разрешенных переходов статусов для книг
+    Защита от несанкционированного изменения статусов (STRIDE: Tampering)
+    Покрывает риск R7 из threat model
+    """
+    # Разрешенные переходы между статусами (работаем со строками)
+    allowed_transitions = {
+        "to_read": ["in_progress", "to_read"],  # "к прочтению" → "в процессе"
+        "in_progress": ["completed", "in_progress"],  # "в процессе" → "прочитано"
+        "completed": ["completed"],  # "прочитано" → только "прочитано" (обратно нельзя)
+    }
+
+    # Проверяем разрешен ли переход
+    if new_status not in allowed_transitions[current_status]:
+        raise ValueError(
+            f"Недопустимый переход статуса: {current_status} → {new_status}. "
+            f"Разрешено: {allowed_transitions[current_status]}"
+        )
+
 
 # Возращаем все книги из списка.
 @router.get("/")
@@ -69,7 +92,7 @@ def update_book(book_id: int, book_data: dict):
 # Updating status.
 @router.patch("/{book_id}/status")
 def update_book_status(book_id: int, status_data: dict):
-    """Изменить статус прочтения"""
+    """Изменить статус прочтения с валидацией переходов"""
     book = next((b for b in books_db if b["id"] == book_id), None)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -82,6 +105,17 @@ def update_book_status(book_id: int, status_data: dict):
         raise HTTPException(
             status_code=422, detail=f"Status must be one of: {valid_statuses}"
         )
+
+    # === THREAT MODELING P04 - ВАЛИДАЦИЯ ПЕРЕХОДОВ ===
+    try:
+        validate_status_transition(book["status"], status_data["status"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Логируем изменение статуса для аудита (NFR-009)
+    print(
+        f"АУДИТ: Книга {book_id} изменила статус с {book['status']} на {status_data['status']}"
+    )
 
     book["status"] = status_data["status"]
     return book
