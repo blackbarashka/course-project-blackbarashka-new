@@ -49,3 +49,23 @@ class TestNFRSecurity:
         assert response.status_code == 200
         # assert "X-Content-Type-Options" in response.headers
         # assert "X-Frame-Options" in response.headers
+
+    # === THREAT MODELING P04 ===
+    def test_status_transition_validation_security(self):
+        """STRIDE-Tampering: Защита от несанкционированного изменения статусов"""
+        # Создаем книгу со статусом "прочитано"
+        book_data = {
+            "title": "Security Book",
+            "author": "Author",
+            "status": "completed",
+        }
+        response = client.post("/api/v1/books", json=book_data)
+        book_id = response.json()["id"]
+
+        # Пытаемся сделать недопустимый переход (прочитано → в процессе)
+        status_update = {"status": "in_progress"}
+        response = client.patch(f"/api/v1/books/{book_id}/status", json=status_update)
+
+        # Должна быть ошибка валидации
+        assert response.status_code == 400
+        assert "Недопустимый переход статуса" in response.json()["detail"]
