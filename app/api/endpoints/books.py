@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
+from app.schemas.book import BookCreate, BookStatusUpdate, BookUpdate
+
 router = APIRouter(prefix="/api/v1/books", tags=["books"])
 
 # Временное хранилище в памяти (для демо)
@@ -49,19 +51,16 @@ def get_book(book_id: int):
 
 # Add a new book.
 @router.post("/")
-def create_book(book_data: dict):
+def create_book(book_data: BookCreate):
     """Добавить новую книгу"""
     global current_id
 
-    # Базовая валидация
-    if not book_data.get("title") or not book_data.get("author"):
-        raise HTTPException(status_code=422, detail="Title and author are required")
-
+    # Создаём новую книгу — поля валидирует Pydantic (BookCreate)
     new_book = {
         "id": current_id,
-        "title": book_data["title"],
-        "author": book_data["author"],
-        "description": book_data.get("description"),
+        "title": book_data.title,
+        "author": book_data.author,
+        "description": book_data.description,
         "status": "to_read",
     }
 
@@ -72,52 +71,50 @@ def create_book(book_data: dict):
 
 # Updating info about the book.
 @router.put("/{book_id}")
-def update_book(book_id: int, book_data: dict):
+def update_book(book_id: int, book_data: BookUpdate):
     """Обновить информацию о книге"""
     book = next((b for b in books_db if b["id"] == book_id), None)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    # Обновляем поля
-    if "title" in book_data:
-        book["title"] = book_data["title"]
-    if "author" in book_data:
-        book["author"] = book_data["author"]
-    if "description" in book_data:
-        book["description"] = book_data["description"]
+    # Обновляем поля (BookUpdate содержит optional поля)
+    if book_data.title is not None:
+        book["title"] = book_data.title
+    if book_data.author is not None:
+        book["author"] = book_data.author
+    if book_data.description is not None:
+        book["description"] = book_data.description
 
     return book
 
 
 # Updating status.
 @router.patch("/{book_id}/status")
-def update_book_status(book_id: int, status_data: dict):
+def update_book_status(book_id: int, status_data: BookStatusUpdate):
     """Изменить статус прочтения с валидацией переходов"""
     book = next((b for b in books_db if b["id"] == book_id), None)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    if "status" not in status_data:
-        raise HTTPException(status_code=422, detail="Status is required")
-
+    # status_data.status уже валидирован как Enum (BookStatus)
     valid_statuses = ["to_read", "in_progress", "completed"]
-    if status_data["status"] not in valid_statuses:
+    if status_data.status not in valid_statuses:
         raise HTTPException(
             status_code=422, detail=f"Status must be one of: {valid_statuses}"
         )
 
     # === THREAT MODELING P04 - ВАЛИДАЦИЯ ПЕРЕХОДОВ ===
     try:
-        validate_status_transition(book["status"], status_data["status"])
+        validate_status_transition(book["status"], status_data.status)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     # Логируем изменение статуса для аудита (NFR-009)
     print(
-        f"АУДИТ: Книга {book_id} изменила статус с {book['status']} на {status_data['status']}"
+        f"АУДИТ: Книга {book_id} изменила статус с {book['status']} на {status_data.status}"
     )
 
-    book["status"] = status_data["status"]
+    book["status"] = status_data.status
     return book
 
 
