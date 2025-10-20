@@ -6,19 +6,12 @@ from typing import List, Optional
 USE_SQL_DB = os.getenv("USE_SQL_DB", "false").lower() == "true"
 
 if USE_SQL_DB:
-    # Используем модули из app.storage при SQL-бэкенде
+    # Ленивые импорты, чтобы не требовать SQLAlchemy при обычной работе
     from app.storage.db import SessionLocal
     from app.storage.orm import BookORM
 
-    # NOTE: не выполняем автоматический create_all при импорте. Тесты
-    # сами создают/уничтожают метаданные явно.
-
 
 class InMemoryBook:
-    """Простая внутренняя модель книги для in-memory хранилища.
-    Используется, если SQLAlchemy отключён (по умолчанию).
-    """
-
     def __init__(
         self,
         id: int,
@@ -39,14 +32,6 @@ class InMemoryBook:
 
 
 class Database:
-    """Адаптивный класс Database.
-
-    Поведение:
-    - по умолчанию использует in-memory хранилище (старая реализация),
-    - если `USE_SQL_DB=true`, переключается на SQLAlchemy (использует SessionLocal).
-
-    """
-
     def __init__(self):
         if USE_SQL_DB:
             # SQL: операции выполняются через сессии SQLAlchemy
@@ -57,7 +42,6 @@ class Database:
             self.books: List[InMemoryBook] = []
             self.current_id = 1
 
-    # Методы для получения всех книг
     def get_all_books(self) -> List[InMemoryBook]:
         if self.backend == "sql":
             with SessionLocal() as session:

@@ -9,10 +9,10 @@
 | F3, F4 | **T**ampering | Инъекция через поля title/author | Sanitization строковых полей, валидация длины | NFR-005 | app/models/book.py |
 | F5, F6 | **I**nformation Disclosure | Доступ ко всем книгам без ограничений | Пагинация GET запросов, лимиты выборки | NFR-006 | GET /api/v1/books |
 | F5 | **T**ampering | Невалидируемое изменение статуса книги | Валидация переходов статусов (to_read→in_progress→completed) | NFR-005 | PATCH /api/v1/books/{id}/status |
-| F10 | **R**epudiation | Отказ от операций с книгами | Логирование с correlation_id, timestamp | NFR-009 | app/database.py |
+| F10 | **R**epudiation | Отказ от операций с книгами | Логирование с correlation_id, timestamp | NFR-009 | app/storage/database.py |
 | F1, F11, F13 | **D**enial of Service | Атаки на доступность API через большие payloads | Лимит размера JSON (1MB) + timeout | NFR-004 | FastAPI конфигурация |
 | F2, F8 | **T**ampering | Подмена внутренних API вызовов | Валидация данных между сервисами | NFR-005 | Internal API checks |
-| F5, F6 | **I**nformation Disclosure | Утечка данных при дампе памяти | Очистка памяти при graceful shutdown | NFR-006 | app/database.py |
+| F5, F6 | **I**nformation Disclosure | Утечка данных при дампе памяти | Очистка памяти при graceful shutdown | NFR-006 | app/storage/database.py |
 | F10 | **T**ampering | Изменение журналов аудита | Append-only логи, цифровые подписи | NFR-009 | Audit log protection |
 | Все потоки | **I**nformation Disclosure | Утечка чувствительных данных в логах | Маскирование email/имен в логах | NFR-006 | Logging configuration |
 | F1, F11, F13 | **D**enial of Service | Исчерпание памяти через множество книг | Мониторинг использования памяти, лимиты | NFR-004 | Memory monitoring |
@@ -46,3 +46,5 @@
 - Нагрузочное тестирование для NFR-003, NFR-004
 - Secret scanning для NFR-007
 - SAST сканирование для NFR-008
+
+> Примечание: в рантайме API по-прежнему предоставляет модуль-совместимость `app.database` (и shim `app/db.py`) для упрощения импортов, а фактическая реализация хранится в `app/storage/`.
