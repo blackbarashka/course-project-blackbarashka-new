@@ -6,14 +6,22 @@ client = TestClient(app)
 
 
 def test_not_found_item():
+    """Тест обработки 404 ошибок"""
     r = client.get("/items/999")
     assert r.status_code == 404
-    body = r.json()
-    assert "error" in body and body["error"]["code"] == "not_found"
+    # Проверяем новый формат RFC 7807
+    error_data = r.json()
+    assert "type" in error_data
+    assert "title" in error_data
+    assert "detail" in error_data
 
 
 def test_validation_error():
+    """Тест обработки ошибок валидации"""
     r = client.post("/items", params={"name": ""})
     assert r.status_code == 422
-    body = r.json()
-    assert body["error"]["code"] == "validation_error"
+    # Проверяем новый формат RFC 7807
+    error_data = r.json()
+    assert "type" in error_data
+    assert "title" in error_data
+    assert "detail" in error_data

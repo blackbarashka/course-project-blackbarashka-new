@@ -25,49 +25,21 @@ class TestNFRSecurity:
         # Неправильный запрос на создание книги
         response = client.post("/api/v1/books", json={"invalid": "data"})
 
-        # Проверяем consistent структуру ошибок
+        # Проверяем consistent структуру ошибок RFC 7807
         if response.status_code != 200:
             error_data = response.json()
-            assert "error" in error_data
-            assert "code" in error_data["error"]
-            assert "message" in error_data["error"]
+            # Новый формат RFC 7807
+            assert "type" in error_data
+            assert "title" in error_data
+            assert "detail" in error_data
+            assert "status" in error_data
 
     def test_api_responses_contain_correlation_id(self):
         """NFR-009: Проверка наличия correlation ID для трассируемости"""
         response = client.get("/api/v1/books")
-
-        # В будущем: проверять наличие correlation ID в заголовках
-        # assert "X-Correlation-ID" in response.headers
         assert response.status_code == 200
 
     def test_security_headers_present(self):
         """NFR-008: Проверка наличия security headers"""
         response = client.get("/api/v1/books")
-
-        # Проверяем базовые security headers
-        # В будущем можно добавить больше headers
         assert response.status_code == 200
-        # assert "X-Content-Type-Options" in response.headers
-        # assert "X-Frame-Options" in response.headers
-
-    '''
-    # === THREAT MODELING P04 ===
-    def test_status_transition_validation_security(self):
-        """STRIDE-Tampering: Защита от несанкционированного изменения статусов"""
-        # Создаем книгу со статусом "прочитано"
-        book_data = {
-            "title": "Security Book",
-            "author": "Author",
-            "status": "completed",
-        }
-        response = client.post("/api/v1/books", json=book_data)
-        book_id = response.json()["id"]
-
-        # Пытаемся сделать недопустимый переход (прочитано → в процессе)
-        status_update = {"status": "in_progress"}
-        response = client.patch(f"/api/v1/books/{book_id}/status", json=status_update)
-
-        # Должна быть ошибка валидации
-        assert response.status_code == 400
-        assert "Недопустимый переход статуса" in response.json()["detail"]
-    '''

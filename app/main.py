@@ -1,34 +1,81 @@
-from fastapi import FastAPI, HTTPException, Request
+import logging
+import uuid
+from datetime import datetime
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints import books
+from app.middleware.error_handler import ErrorHandlerMiddleware
 
 app = FastAPI(title="SecDev Course App", version="0.1.0")
 
+# Настройка логгера по умолчанию для аудита
+logging.basicConfig(level=logging.INFO)
 
-class ApiError(Exception):
-    def __init__(self, code: str, message: str, status: int = 400):
-        self.code = code
-        self.message = message
-        self.status = status
+# Регистрируем middleware: обработчик ошибок. Rate limiting и request-size middleware
+# оставлены в кодовой базе как опция, но по умолчанию не активируются здесь.
+app.add_middleware(ErrorHandlerMiddleware)
 
-
-@app.exception_handler(ApiError)
-async def api_error_handler(request: Request, exc: ApiError):
-    return JSONResponse(
-        status_code=exc.status,
-        content={"error": {"code": exc.code, "message": exc.message}},
-    )
+# используем встроенные exception handlers
 
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    # Normalize FastAPI HTTPException into our error envelope
-    detail = exc.detail if isinstance(exc.detail, str) else "http_error"
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": {"code": "http_error", "message": detail}},
-    )
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Обработчик ошибок валидации в формате RFC 7807"""
+    correlation_id = str(uuid.uuid4())
+
+    problem_details = {
+        "type": "https://api.readinglist.com/errors/validation-error",
+        "title": "Validation Error",
+        "status": 422,
+        "detail": "Request validation failed",
+        "instance": request.url.path,
+        "correlation_id": correlation_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+    logging.getLogger("app.audit").info("AUDIT_ERROR: %s", problem_details)
+    return JSONResponse(status_code=422, content=problem_details)
+
+
+@app.exception_handler(404)
+async def not_found_exception_handler(request: Request, exc: Exception):
+    """Обработчик 404 ошибок в формате RFC 7807"""
+    correlation_id = str(uuid.uuid4())
+
+    problem_details = {
+        "type": "https://api.readinglist.com/errors/not-found",
+        "title": "Resource Not Found",
+        "status": 404,
+        "detail": "The requested resource was not found",
+        "instance": request.url.path,
+        "correlation_id": correlation_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+    logging.getLogger("app.audit").info("AUDIT_ERROR: %s", problem_details)
+    return JSONResponse(status_code=404, content=problem_details)
+
+
+@app.exception_handler(500)
+async def internal_error_exception_handler(request: Request, exc: Exception):
+    """Обработчик 500 ошибок в формате RFC 7807"""
+    correlation_id = str(uuid.uuid4())
+
+    problem_details = {
+        "type": "https://api.readinglist.com/errors/internal-error",
+        "title": "Internal Server Error",
+        "status": 500,
+        "detail": "An internal server error occurred",
+        "instance": request.url.path,
+        "correlation_id": correlation_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+    logging.getLogger("app.audit").info("AUDIT_ERROR: %s", problem_details)
+    return JSONResponse(status_code=500, content=problem_details)
 
 
 # Подключаем роутеры для книг
@@ -40,16 +87,14 @@ def health():
     return {"status": "ok"}
 
 
-# Example minimal entity (for tests/demo)
 _DB = {"items": []}
 
 
 @app.post("/items")
 def create_item(name: str):
     if not name or len(name) > 100:
-        raise ApiError(
-            code="validation_error", message="name must be 1..100 chars", status=422
-        )
+        # Вызываем ошибку валидации
+        raise RequestValidationError(errors=[])
     item = {"id": len(_DB["items"]) + 1, "name": name}
     _DB["items"].append(item)
     return item
@@ -60,4 +105,7 @@ def get_item(item_id: int):
     for it in _DB["items"]:
         if it["id"] == item_id:
             return it
-    raise ApiError(code="not_found", message="item not found", status=404)
+    # Вызываем 404 ошибку
+    from fastapi import HTTPException
+
+    raise HTTPException(status_code=404, detail="item not found")

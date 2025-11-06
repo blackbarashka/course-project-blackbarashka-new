@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from models.book import Book
+from app.models.book import Book
 
 
 # Временное хранилище в памяти
