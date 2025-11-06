@@ -14,8 +14,7 @@ app = FastAPI(title="SecDev Course App", version="0.1.0")
 # Настройка логгера по умолчанию для аудита
 logging.basicConfig(level=logging.INFO)
 
-# Регистрируем middleware: обработчик ошибок. Rate limiting и request-size middleware
-# оставлены в кодовой базе как опция, но по умолчанию не активируются здесь.
+
 app.add_middleware(ErrorHandlerMiddleware)
 
 # используем встроенные exception handlers
