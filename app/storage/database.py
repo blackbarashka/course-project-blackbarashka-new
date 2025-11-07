@@ -2,16 +2,17 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
-# Флаг, указывающий, использовать ли SQLAlchemy-бэкенд
+# Флаг для переключения между in-memory и SQL бэкендом
 USE_SQL_DB = os.getenv("USE_SQL_DB", "false").lower() == "true"
 
 if USE_SQL_DB:
-    # Ленивые импорты, чтобы не требовать SQLAlchemy при обычной работе
     from app.storage.db import SessionLocal
     from app.storage.orm import BookORM
 
 
 class InMemoryBook:
+    """Модель книги для in-memory хранилища."""
+
     def __init__(
         self,
         id: int,
@@ -32,12 +33,12 @@ class InMemoryBook:
 
 
 class Database:
+    """Адаптивный класс Database."""
+
     def __init__(self):
         if USE_SQL_DB:
-            # SQL: операции выполняются через сессии SQLAlchemy
             self.backend = "sql"
         else:
-            # In-memory: простой список объектов
             self.backend = "memory"
             self.books: List[InMemoryBook] = []
             self.current_id = 1
@@ -111,6 +112,28 @@ class Database:
             self.books.remove(book)
             return True
         return False
+
+    def search_books(self, query: str) -> List[InMemoryBook]:
+        """Поиск книг по названию или автору."""
+        if self.backend == "sql":
+            with SessionLocal() as session:
+                search_pattern = f"%{query}%"
+                rows = (
+                    session.query(BookORM)
+                    .filter(
+                        (BookORM.title.ilike(search_pattern))
+                        | (BookORM.author.ilike(search_pattern))
+                    )
+                    .all()
+                )
+                return [InMemoryBook(**r.to_domain()) for r in rows]
+
+        query_lower = query.lower()
+        return [
+            book
+            for book in self.books
+            if query_lower in book.title.lower() or query_lower in book.author.lower()
+        ]
 
 
 # Глобальный экземпляр базы данных

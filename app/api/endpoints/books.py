@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.book import BookCreate, BookStatusUpdate, BookUpdate
+from app.storage.database import db
 
 router = APIRouter(prefix="/api/v1/books", tags=["books"])
 
@@ -37,6 +38,49 @@ def validate_status_transition(current_status: str, new_status: str) -> None:
 def get_books():
     """Получить список всех книг"""
     return books_db
+
+
+@router.get("/search")
+def search_books(
+    q: str = Query(..., min_length=1, max_length=200, description="Поисковый запрос")
+):
+    """Поиск книг по названию или автору."""
+    try:
+        if db.backend == "sql":
+            found_books = db.search_books(q)
+            result = []
+            for book in found_books:
+                result.append(
+                    {
+                        "id": book.id,
+                        "title": book.title,
+                        "author": book.author,
+                        "description": book.description,
+                        "status": book.status,
+                        "created_at": (
+                            book.created_at.isoformat() if book.created_at else None
+                        ),
+                        "updated_at": (
+                            book.updated_at.isoformat() if book.updated_at else None
+                        ),
+                    }
+                )
+            return result
+        else:
+            # In-memory фильтрация
+            query_lower = q.lower()
+            result = []
+            for book in books_db:
+                if (
+                    query_lower in book.get("title", "").lower()
+                    or query_lower in book.get("author", "").lower()
+                ):
+                    result.append(book)
+            return result
+    except Exception:
+        raise HTTPException(
+            status_code=500, detail="An error occurred while searching for books"
+        )
 
 
 # Looking for a book by id.

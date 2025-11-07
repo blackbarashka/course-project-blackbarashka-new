@@ -13,7 +13,7 @@ def test_sqlalchemy_crud(tmp_path, monkeypatch):
 
     sys.modules.pop("app.storage.orm", None)
     sys.modules.pop("app.storage.db", None)
-    sys.modules.pop("app.database", None)
+    sys.modules.pop("app.storage.database", None)
 
     dbmod = importlib.import_module("app.storage.db")
     orm_mod = importlib.import_module("app.storage.orm")
@@ -42,7 +42,7 @@ def test_sqlalchemy_crud(tmp_path, monkeypatch):
         else:
             raise
 
-    database_mod = importlib.import_module("app.database")
+    database_mod = importlib.import_module("app.storage.database")
 
     db = database_mod.db
 
