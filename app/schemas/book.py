@@ -35,3 +35,15 @@ class BookResponse(BaseModel):
 
 class BookStatusUpdate(BaseModel):
     status: BookStatus
+
+
+class BookSearchQuery(BaseModel):
+    """Схема для валидации поискового запроса"""
+
+    q: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Поисковый запрос (название или автор книги)",
+        example="Clean Code",
+    )
