@@ -1,17 +1,66 @@
+# Git
 .git
 .gitignore
 .gitattributes
+.github/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.sqlite
-*.db
-.venv/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
 dist/
 build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
-node_modules/
+.tox/
+.hypothesis/
+*.cover
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+
+# Other
+node_modules/
+*.log
+*.tmp
+.cache/
