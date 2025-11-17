@@ -140,6 +140,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
           railway up --detach
           echo "✅ Successfully deployed to Railway!"
           echo "🚀 Check your Railway dashboard: https://railway.app"
