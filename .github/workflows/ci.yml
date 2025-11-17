@@ -139,8 +139,8 @@ jobs:
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
         run: |
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
           railway up --detach
           echo "✅ Successfully deployed to Railway!"
           echo "🚀 Check your Railway dashboard: https://railway.app"
