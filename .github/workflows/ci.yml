@@ -140,7 +140,12 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          railway up --detach
+          if [ -n "$RAILWAY_SERVICE" ]; then
+            railway up --service $RAILWAY_SERVICE --detach
+          else
+            railway up --detach
+          fi
           echo "✅ Successfully deployed to Railway!"
           echo "🚀 Check your Railway dashboard: https://railway.app"
