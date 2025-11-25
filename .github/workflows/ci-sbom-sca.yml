@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Ensure evidence dirs
         run: mkdir -p EVIDENCE/P09
@@ -51,3 +54,12 @@ jobs:
         with:
           name: P09_EVIDENCE
           path: EVIDENCE/P09
+
+      - name: Commit evidence files to repository
+        if: github.ref == 'refs/heads/main' && always()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add EVIDENCE/P09/*.json EVIDENCE/P09/*.md
+          git diff --staged --quiet || git commit -m "chore: update SBOM & SCA evidence [skip ci]"
+          git push
