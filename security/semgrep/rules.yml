@@ -24,16 +24,3 @@ rules:
     metadata:
       category: security
       cwe: "CWE-703: Improper Check or Handling of Exceptional Conditions"
-
-  - id: py-unsafe-env-var
-    languages: [python]
-    message: "Использование переменных окружения без дефолтного значения может привести к ошибкам"
-    severity: INFO
-    patterns:
-      - pattern: |
-          os.getenv($KEY)
-      - not: pattern: |
-          os.getenv($KEY, $DEFAULT)
-    metadata:
-      category: reliability
-
