@@ -1,0 +1,39 @@
+# Правила Semgrep для Reading List API
+# Адаптировано под FastAPI приложение
+
+rules:
+  - id: py-unsafe-html-echo
+    languages: [python]
+    message: "Потенциально небезопасный вывод пользовательских данных в HTMLResponse"
+    severity: WARNING
+    patterns:
+      - pattern: |
+          HTMLResponse(f"...{$X}...")
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+
+  - id: py-broad-exception-handler
+    languages: [python]
+    message: "Слишком широкий обработчик исключений может скрывать ошибки"
+    severity: WARNING
+    patterns:
+      - pattern: |
+          except Exception:
+            ...
+    metadata:
+      category: security
+      cwe: "CWE-703: Improper Check or Handling of Exceptional Conditions"
+
+  - id: py-unsafe-env-var
+    languages: [python]
+    message: "Использование переменных окружения без дефолтного значения может привести к ошибкам"
+    severity: INFO
+    patterns:
+      - pattern: |
+          os.getenv($KEY)
+      - not: pattern: |
+          os.getenv($KEY, $DEFAULT)
+    metadata:
+      category: reliability
+

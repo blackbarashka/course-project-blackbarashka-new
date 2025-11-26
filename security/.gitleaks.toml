@@ -1,0 +1,24 @@
+# Конфигурация Gitleaks для Reading List API
+# Адаптировано под проект
+
+title = "Reading List API gitleaks config"
+
+[extend]
+# Используем встроенные правила по умолчанию
+
+[allowlist]
+description = "Исключения для нечувствительных паттернов и тестовых данных"
+paths = [
+  "EVIDENCE/",           # отчёты и артефакты
+  "docs/",               # документация (может содержать примеры)
+  "tests/",              # тестовые файлы (могут содержать примеры секретов)
+  "*.md",                # markdown файлы с примерами
+]
+
+commits = []
+regexes = [
+  '''TEST_SECRET_DO_NOT_USE''',
+  '''sqlite:///.*\.db''',              # SQLite пути в тестах
+  '''DATABASE_URL.*sqlite''',          # SQLite DATABASE_URL в тестах
+  '''postgresql://.*:memory:''',       # In-memory базы данных
+]
