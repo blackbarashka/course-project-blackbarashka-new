@@ -41,10 +41,10 @@ jobs:
           # Запускаем приложение в фоне
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
           APP_PID=$!
-          
+
           # Ждём готовности приложения
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health; do sleep 1; done'
-          
+
           # Запускаем ZAP baseline (--network host работает на GitHub Actions Ubuntu)
           docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
             zap-baseline.py \
@@ -52,10 +52,10 @@ jobs:
               -r /zap/wrk/zap_baseline.html \
               -J /zap/wrk/zap_baseline.json \
               -d || true
-          
+
           # Останавливаем приложение
           kill $APP_PID || true
-          
+
           # Перемещаем отчёты в EVIDENCE
           mv zap_baseline.* EVIDENCE/P11/ || true
 
@@ -65,4 +65,3 @@ jobs:
         with:
           name: P11_EVIDENCE
           path: EVIDENCE/P11
-
