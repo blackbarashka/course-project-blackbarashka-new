@@ -71,14 +71,37 @@ jobs:
           docker run --rm --network host curlimages/curl:latest curl -sf http://localhost:8000/health || echo "WARNING: App not accessible from Docker!"
           
           set +e
-          # Пробуем через network host (должно работать на GitHub Actions Ubuntu)
-          echo "Running ZAP baseline with --network host..."
-          docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
-            zap-baseline.py \
+          # Используем образ, который содержит zap-baseline.py
+          # Пробуем разные варианты образов
+          echo "Attempt 1: Trying ghcr.io/zaproxy/zaproxy:stable..."
+          docker run --rm --network host -v $PWD:/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
               -t http://localhost:8000 \
               -r /zap/wrk/zap_baseline.html \
               -J /zap/wrk/zap_baseline.json \
               -d 2>&1 | tee zap_output.log || true
+          
+          # Если не сработало, пробуем образ с zap-baseline
+          if [ ! -f zap_baseline.html ]; then
+            echo "Attempt 2: Trying ghcr.io/zaproxy/zaproxy:stable with /zap/zap-baseline.py..."
+            docker run --rm --network host -v $PWD:/zap/wrk/:rw \
+              ghcr.io/zaproxy/zaproxy:stable /zap/zap-baseline.py \
+                -t http://localhost:8000 \
+                -r /zap/wrk/zap_baseline.html \
+                -J /zap/wrk/zap_baseline.json \
+                -d 2>&1 | tee zap_output.log || true
+          fi
+          
+          # Если всё ещё не работает, пробуем образ из Docker Hub
+          if [ ! -f zap_baseline.html ]; then
+            echo "Attempt 3: Trying owasp/zap2docker-weekly..."
+            docker run --rm --network host -v $PWD:/zap/wrk/:rw \
+              owasp/zap2docker-weekly zap-baseline.py \
+                -t http://localhost:8000 \
+                -r /zap/wrk/zap_baseline.html \
+                -J /zap/wrk/zap_baseline.json \
+                -d 2>&1 | tee zap_output.log || true
+          fi
           set -e
           
           # Проверяем код возврата и наличие файлов
