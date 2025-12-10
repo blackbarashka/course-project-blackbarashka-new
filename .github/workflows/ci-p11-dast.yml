@@ -63,7 +63,7 @@ jobs:
           # Получаем IP адрес хоста для доступа из Docker
           HOST_IP=$(ip route | grep default | awk '{print $3}' | head -1)
           echo "Host IP: $HOST_IP"
-          
+
           # Запускаем ZAP baseline
           # Пробуем разные варианты доступа к хосту
           echo "Starting ZAP baseline scan..."
@@ -74,7 +74,7 @@ jobs:
               -r /zap/wrk/zap_baseline.html \
               -J /zap/wrk/zap_baseline.json \
               -d 2>&1 | tee zap_output.log || true
-          
+
           # Если не сработало, пробуем через network host
           if [ ! -f zap_baseline.html ]; then
             echo "Trying with --network host..."
@@ -114,7 +114,7 @@ jobs:
           # Финальная проверка
           echo "Final check of EVIDENCE/P11/:"
           ls -la EVIDENCE/P11/ || echo "EVIDENCE/P11/ is empty"
-          
+
           # Создаём пустые файлы для отладки, если ничего не нашлось
           if [ ! -f EVIDENCE/P11/zap_baseline.html ] && [ ! -f EVIDENCE/P11/zap_baseline.json ]; then
             echo "ERROR: No ZAP reports were created!" > EVIDENCE/P11/error.txt
