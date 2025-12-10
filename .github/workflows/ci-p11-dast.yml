@@ -39,34 +39,67 @@ jobs:
       - name: Run app and ZAP Baseline
         run: |
           # Запускаем приложение в фоне
+          echo "Starting app..."
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
           APP_PID=$!
           echo "App started with PID: $APP_PID"
 
           # Ждём готовности приложения
           echo "Waiting for app to be ready..."
-          timeout 30 bash -c 'until curl -sf http://localhost:8000/health; do sleep 1; done'
-          echo "App is ready!"
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "App is ready!"
+              break
+            fi
+            echo "Attempt $i/30: waiting for app..."
+            sleep 1
+          done
 
           # Проверяем, что приложение доступно
+          echo "Testing app connectivity..."
           curl -v http://localhost:8000/health || true
+          curl -v http://127.0.0.1:8000/health || true
 
+          # Получаем IP адрес хоста для доступа из Docker
+          HOST_IP=$(ip route | grep default | awk '{print $3}' | head -1)
+          echo "Host IP: $HOST_IP"
+          
           # Запускаем ZAP baseline
-          # Сохраняем отчёты в корень рабочей директории
+          # Пробуем разные варианты доступа к хосту
           echo "Starting ZAP baseline scan..."
-          docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
+          set +e
+          docker run --rm --add-host=host.docker.internal:host-gateway -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
             zap-baseline.py \
-              -t http://localhost:8000 \
+              -t http://host.docker.internal:8000 \
               -r /zap/wrk/zap_baseline.html \
               -J /zap/wrk/zap_baseline.json \
-              -d || true
+              -d 2>&1 | tee zap_output.log || true
+          
+          # Если не сработало, пробуем через network host
+          if [ ! -f zap_baseline.html ]; then
+            echo "Trying with --network host..."
+            docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
+              zap-baseline.py \
+                -t http://localhost:8000 \
+                -r /zap/wrk/zap_baseline.html \
+                -J /zap/wrk/zap_baseline.json \
+                -d 2>&1 | tee zap_output.log || true
+          fi
+          set -e
 
           # Останавливаем приложение
-          kill $APP_PID || true
+          echo "Stopping app..."
+          kill $APP_PID 2>/dev/null || true
+          sleep 2
+
+          # Показываем вывод ZAP
+          echo "ZAP output:"
+          cat zap_output.log || true
 
           # Проверяем, что файлы созданы в корне
           echo "Checking for ZAP reports..."
-          ls -la zap_baseline.* || echo "No zap_baseline files found in root"
+          ls -la zap_baseline.* 2>/dev/null || echo "No zap_baseline files found in root"
+          find . -name "zap_baseline.*" -type f || echo "No zap_baseline files found anywhere"
 
           # Перемещаем файлы в EVIDENCE/P11
           if [ -f zap_baseline.html ]; then
@@ -81,6 +114,12 @@ jobs:
           # Финальная проверка
           echo "Final check of EVIDENCE/P11/:"
           ls -la EVIDENCE/P11/ || echo "EVIDENCE/P11/ is empty"
+          
+          # Создаём пустые файлы для отладки, если ничего не нашлось
+          if [ ! -f EVIDENCE/P11/zap_baseline.html ] && [ ! -f EVIDENCE/P11/zap_baseline.json ]; then
+            echo "ERROR: No ZAP reports were created!" > EVIDENCE/P11/error.txt
+            echo "Check zap_output.log for details" >> EVIDENCE/P11/error.txt
+          fi
 
       - name: Upload P11 evidence
         if: always()
