@@ -46,18 +46,19 @@ jobs:
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health; do sleep 1; done'
 
           # Запускаем ZAP baseline (--network host работает на GitHub Actions Ubuntu)
+          # Сохраняем отчёты напрямую в EVIDENCE/P11
           docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
             zap-baseline.py \
               -t http://localhost:8000 \
-              -r /zap/wrk/zap_baseline.html \
-              -J /zap/wrk/zap_baseline.json \
+              -r /zap/wrk/EVIDENCE/P11/zap_baseline.html \
+              -J /zap/wrk/EVIDENCE/P11/zap_baseline.json \
               -d || true
 
           # Останавливаем приложение
           kill $APP_PID || true
 
-          # Перемещаем отчёты в EVIDENCE
-          mv zap_baseline.* EVIDENCE/P11/ || true
+          # Проверяем, что файлы созданы
+          ls -la EVIDENCE/P11/ || true
 
       - name: Upload P11 evidence
         if: always()
