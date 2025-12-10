@@ -55,30 +55,11 @@ jobs:
             sleep 1
           done
 
-          # Проверяем, что приложение доступно
-          echo "Testing app connectivity..."
-          curl -v http://localhost:8000/health || true
-          curl -v http://127.0.0.1:8000/health || true
-
-          # Получаем IP адрес хоста для доступа из Docker
-          HOST_IP=$(ip route | grep default | awk '{print $3}' | head -1)
-          echo "Host IP: $HOST_IP"
-
           # Запускаем ZAP baseline
-          # Используем --network host для прямого доступа к localhost
           echo "Starting ZAP baseline scan..."
-          echo "Testing if app is accessible from Docker..."
-          docker run --rm --network host curlimages/curl:latest curl -sf http://localhost:8000/health || echo "WARNING: App not accessible from Docker!"
-
-          # Устанавливаем права на запись для всех в смонтированной директории
-          echo "Setting permissions for ZAP reports..."
-          chmod -R 777 . || true
-
           set +e
           # Используем образ ghcr.io/zaproxy/zaproxy:stable
-          # Устанавливаем рабочую директорию и используем относительные пути
           # Запускаем от root для обхода проблем с правами доступа
-          echo "Running ZAP baseline scan..."
           docker run --rm --network host --user root -v $PWD:/zap/wrk/:rw -w /zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
               -t http://localhost:8000 \
@@ -86,9 +67,6 @@ jobs:
               -J zap_baseline.json \
               -d 2>&1 | tee zap_output.log || true
           set -e
-          
-          # Возвращаем нормальные права
-          chmod -R 755 . || true
 
           # Проверяем код возврата и наличие файлов
           ZAP_EXIT_CODE=${PIPESTATUS[0]}
@@ -99,39 +77,12 @@ jobs:
           kill $APP_PID 2>/dev/null || true
           sleep 2
 
-          # Показываем вывод ZAP
-          echo "ZAP output:"
-          cat zap_output.log || true
-
-          # Сохраняем лог в EVIDENCE для отладки
-          cp zap_output.log EVIDENCE/P11/ 2>/dev/null || true
-
-          # Проверяем, что файлы созданы в корне
-          echo "Checking for ZAP reports..."
-          ls -la zap_baseline.* 2>/dev/null || echo "No zap_baseline files found in root"
-          find . -name "zap_baseline.*" -type f || echo "No zap_baseline files found anywhere"
-
-          # Перемещаем файлы в EVIDENCE/P11
+          # Перемещаем файлы отчётов в EVIDENCE/P11
           if [ -f zap_baseline.html ]; then
             mv zap_baseline.html EVIDENCE/P11/ || true
-            echo "Moved zap_baseline.html to EVIDENCE/P11/"
           fi
           if [ -f zap_baseline.json ]; then
             mv zap_baseline.json EVIDENCE/P11/ || true
-            echo "Moved zap_baseline.json to EVIDENCE/P11/"
-          fi
-
-          # Финальная проверка
-          echo "Final check of EVIDENCE/P11/:"
-          ls -la EVIDENCE/P11/ || echo "EVIDENCE/P11/ is empty"
-
-          # Создаём файл с ошибкой, если ничего не нашлось
-          if [ ! -f EVIDENCE/P11/zap_baseline.html ] && [ ! -f EVIDENCE/P11/zap_baseline.json ]; then
-            echo "ERROR: No ZAP reports were created!" > EVIDENCE/P11/error.txt
-            echo "Check zap_output.log for details" >> EVIDENCE/P11/error.txt
-            echo "" >> EVIDENCE/P11/error.txt
-            echo "Last 50 lines of ZAP output:" >> EVIDENCE/P11/error.txt
-            tail -50 zap_output.log >> EVIDENCE/P11/error.txt 2>/dev/null || echo "Could not read zap_output.log" >> EVIDENCE/P11/error.txt
           fi
 
       - name: Upload P11 evidence
