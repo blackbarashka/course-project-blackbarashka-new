@@ -1,0 +1,104 @@
+name: Security - IaC & Container (P12)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Dockerfile"
+      - "iac/**"
+      - "k8s/**"
+      - "deploy/**"
+      - "security/**"
+      - ".github/workflows/ci-p12-iac-container.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iac_container_p12:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Ensure evidence dirs
+        run: mkdir -p EVIDENCE/P12
+
+      - name: Build image
+        run: |
+          docker build -t app:local .
+
+      - name: Hadolint Dockerfile
+        run: |
+          # Hadolint автоматически использует .hadolint.yaml или hadolint.yaml в корне
+          # Для использования нашего конфига копируем его в корень
+          if [ -f security/hadolint.yaml ]; then
+            cp security/hadolint.yaml .hadolint.yaml
+          fi
+          docker run --rm -v $PWD:/work hadolint/hadolint \
+            hadolint -f json /work/Dockerfile > EVIDENCE/P12/hadolint_report.json || true
+
+      - name: Checkov IaC scan
+        run: |
+          TARGET_DIR="iac"
+          if [ -d "k8s" ]; then TARGET_DIR="k8s"; fi
+          if [ -d "deploy" ]; then TARGET_DIR="deploy"; fi
+          CONFIG_ARG=""
+          if [ -f security/checkov.yaml ]; then
+            CONFIG_ARG="--config-file /work/security/checkov.yaml"
+          fi
+          docker run --rm -v $PWD:/work bridgecrew/checkov \
+            -d /work/${TARGET_DIR} \
+            -o json \
+            --compact \
+            $CONFIG_ARG > EVIDENCE/P12/checkov_report.json || true
+
+      - name: Trivy image scan
+        run: |
+          # Trivy использует флаги напрямую, конфиг для severity уже задан в security/trivy.yaml
+          # Используем флаги из конфига: сканируем только CRITICAL и HIGH
+          docker run --rm -v $PWD:/work aquasec/trivy \
+            image --severity CRITICAL,HIGH \
+              --format json \
+              --output /work/EVIDENCE/P12/trivy_report.json \
+              app:local || true
+
+      - name: Upload P12 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: P12_EVIDENCE
+          path: EVIDENCE/P12
+          if-no-files-found: warn
+
+      - name: Commit evidence files to repository
+        if: always()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Синхронизируемся с удаленной веткой
+          git pull --rebase || true
+          # Добавляем файлы только если они существуют
+          if [ -f EVIDENCE/P12/hadolint_report.json ]; then
+            git add EVIDENCE/P12/hadolint_report.json
+          fi
+          if [ -f EVIDENCE/P12/checkov_report.json ]; then
+            git add EVIDENCE/P12/checkov_report.json
+          fi
+          if [ -f EVIDENCE/P12/trivy_report.json ]; then
+            git add EVIDENCE/P12/trivy_report.json
+          fi
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update P12 IaC & Container security evidence [skip ci]"
+            git pull --rebase || true
+            git push
+          fi
+
