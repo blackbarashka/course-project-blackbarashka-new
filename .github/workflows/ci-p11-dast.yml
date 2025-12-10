@@ -41,24 +41,46 @@ jobs:
           # Запускаем приложение в фоне
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
           APP_PID=$!
+          echo "App started with PID: $APP_PID"
 
           # Ждём готовности приложения
+          echo "Waiting for app to be ready..."
           timeout 30 bash -c 'until curl -sf http://localhost:8000/health; do sleep 1; done'
+          echo "App is ready!"
 
-          # Запускаем ZAP baseline (--network host работает на GitHub Actions Ubuntu)
-          # Сохраняем отчёты напрямую в EVIDENCE/P11
+          # Проверяем, что приложение доступно
+          curl -v http://localhost:8000/health || true
+
+          # Запускаем ZAP baseline
+          # Сохраняем отчёты в корень рабочей директории
+          echo "Starting ZAP baseline scan..."
           docker run --rm --network host -v $PWD:/zap/wrk/:rw owasp/zap2docker-stable \
             zap-baseline.py \
               -t http://localhost:8000 \
-              -r /zap/wrk/EVIDENCE/P11/zap_baseline.html \
-              -J /zap/wrk/EVIDENCE/P11/zap_baseline.json \
+              -r /zap/wrk/zap_baseline.html \
+              -J /zap/wrk/zap_baseline.json \
               -d || true
 
           # Останавливаем приложение
           kill $APP_PID || true
 
-          # Проверяем, что файлы созданы
-          ls -la EVIDENCE/P11/ || true
+          # Проверяем, что файлы созданы в корне
+          echo "Checking for ZAP reports..."
+          ls -la zap_baseline.* || echo "No zap_baseline files found in root"
+
+          # Перемещаем файлы в EVIDENCE/P11
+          if [ -f zap_baseline.html ]; then
+            mv zap_baseline.html EVIDENCE/P11/ || true
+            echo "Moved zap_baseline.html to EVIDENCE/P11/"
+          fi
+          if [ -f zap_baseline.json ]; then
+            mv zap_baseline.json EVIDENCE/P11/ || true
+            echo "Moved zap_baseline.json to EVIDENCE/P11/"
+          fi
+
+          # Финальная проверка
+          echo "Final check of EVIDENCE/P11/:"
+          ls -la EVIDENCE/P11/ || echo "EVIDENCE/P11/ is empty"
 
       - name: Upload P11 evidence
         if: always()
@@ -66,3 +88,4 @@ jobs:
         with:
           name: P11_EVIDENCE
           path: EVIDENCE/P11
+          if-no-files-found: warn
