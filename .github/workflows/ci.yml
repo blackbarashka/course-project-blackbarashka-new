@@ -114,12 +114,12 @@ jobs:
 
       - name: Mock deployment to staging
         run: |
-          echo "🚀 Deploying to staging environment..."
+          echo "Deploying to staging environment..."
           echo "Environment: ${{ secrets.STAGING_ENV }}"
           echo "This is a mock deployment - no actual deployment performed"
           echo "In production, this would deploy to: ${{ env.STAGING_URL }}"
           docker load -i image.tar
-          echo "✅ Staging deployment simulation completed"
+          echo "Staging deployment simulation completed"
 
   deploy-railway:
     runs-on: ubuntu-latest
@@ -147,5 +147,5 @@ jobs:
           else
             railway up --detach
           fi
-          echo "✅ Successfully deployed to Railway!"
-          echo "🚀 Check your Railway dashboard: https://railway.app"
+          echo "Successfully deployed to Railway!"
+          echo "Check your Railway dashboard: https://railway.app"
