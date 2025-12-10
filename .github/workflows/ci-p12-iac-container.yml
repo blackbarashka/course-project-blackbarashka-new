@@ -38,8 +38,6 @@ jobs:
 
       - name: Hadolint Dockerfile
         run: |
-          # Hadolint автоматически использует .hadolint.yaml или hadolint.yaml в корне
-          # Для использования нашего конфига копируем его в корень
           if [ -f security/hadolint.yaml ]; then
             cp security/hadolint.yaml .hadolint.yaml
           fi
@@ -63,13 +61,34 @@ jobs:
 
       - name: Trivy image scan
         run: |
-          # Trivy использует флаги напрямую, конфиг для severity уже задан в security/trivy.yaml
-          # Используем флаги из конфига: сканируем только CRITICAL и HIGH
-          docker run --rm -v $PWD:/work aquasec/trivy \
-            image --severity CRITICAL,HIGH \
+          # Проверяем, что образ существует
+          echo "Checking for app:local image..."
+          docker images | grep app || echo "WARNING: Image app:local not found"
+          # Сохраняем образ в tar для сканирования
+          docker save app:local -o /tmp/app-image.tar || echo "Failed to save image"
+          # Trivy может сканировать образ из tar файла
+          docker run --rm -v /tmp:/tmp -v $PWD:/work aquasec/trivy \
+            image --input /tmp/app-image.tar \
+              --severity CRITICAL,HIGH \
               --format json \
-              --output /work/EVIDENCE/P12/trivy_report.json \
-              app:local || true
+              --output /work/EVIDENCE/P12/trivy_report.json || true
+          # Сканирование напрямую
+          if [ ! -f EVIDENCE/P12/trivy_report.json ]; then
+            echo "Trying direct image scan..."
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              -v $PWD:/work aquasec/trivy \
+              image --severity CRITICAL,HIGH \
+                --format json \
+                --output /work/EVIDENCE/P12/trivy_report.json \
+                app:local || true
+          fi
+          # Проверяем результат
+          if [ -f EVIDENCE/P12/trivy_report.json ]; then
+            echo "Trivy report created successfully"
+            ls -lh EVIDENCE/P12/trivy_report.json
+          else
+            echo "WARNING: Trivy report was not created"
+          fi
 
       - name: Upload P12 evidence
         if: always()
@@ -101,4 +120,3 @@ jobs:
             git pull --rebase || true
             git push
           fi
-

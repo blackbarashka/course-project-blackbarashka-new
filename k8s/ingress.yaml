@@ -20,4 +20,3 @@ spec:
             name: reading-list-service
             port:
               number: 80
-
