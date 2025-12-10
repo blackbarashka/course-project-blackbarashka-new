@@ -69,7 +69,7 @@ jobs:
           echo "Starting ZAP baseline scan..."
           echo "Testing if app is accessible from Docker..."
           docker run --rm --network host curlimages/curl:latest curl -sf http://localhost:8000/health || echo "WARNING: App not accessible from Docker!"
-          
+
           set +e
           # Используем образ, который содержит zap-baseline.py
           # Пробуем разные варианты образов
@@ -80,7 +80,7 @@ jobs:
               -r /zap/wrk/zap_baseline.html \
               -J /zap/wrk/zap_baseline.json \
               -d 2>&1 | tee zap_output.log || true
-          
+
           # Если не сработало, пробуем образ с zap-baseline
           if [ ! -f zap_baseline.html ]; then
             echo "Attempt 2: Trying ghcr.io/zaproxy/zaproxy:stable with /zap/zap-baseline.py..."
@@ -91,7 +91,7 @@ jobs:
                 -J /zap/wrk/zap_baseline.json \
                 -d 2>&1 | tee zap_output.log || true
           fi
-          
+
           # Если всё ещё не работает, пробуем образ из Docker Hub
           if [ ! -f zap_baseline.html ]; then
             echo "Attempt 3: Trying owasp/zap2docker-weekly..."
@@ -103,7 +103,7 @@ jobs:
                 -d 2>&1 | tee zap_output.log || true
           fi
           set -e
-          
+
           # Проверяем код возврата и наличие файлов
           ZAP_EXIT_CODE=${PIPESTATUS[0]}
           echo "ZAP exit code: $ZAP_EXIT_CODE"
