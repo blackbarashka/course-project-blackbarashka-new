@@ -20,8 +20,16 @@ spec:
         fsGroup: 1000
       containers:
       - name: app
-        image: reading-list-app:latest
+        image: reading-list-app:v1.0.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: 8000
           name: http

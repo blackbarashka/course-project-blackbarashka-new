@@ -4,6 +4,9 @@ metadata:
   name: reading-list-ingress
   labels:
     app: reading-list
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   rules:
